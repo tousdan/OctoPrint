@@ -10,9 +10,12 @@ from werkzeug.exceptions import BadRequest
 import re
 
 from octoprint.settings import settings, valid_boolean_trues
-from octoprint.server import printer, printerProfileManager, NO_CONTENT
+from octoprint.server import printer, printerProfileManager, NO_CONTENT, NOT_MODIFIED
 from octoprint.server.api import api
-from octoprint.server.util.flask import restricted_access, get_json_command_from_request
+from octoprint.server.api.settings import compute_etag, compute_lastmodified
+from octoprint.server.util.flask import restricted_access, get_json_command_from_request, \
+	cached, etagged, lastmodified, conditional, check_etag_and_lastmodified, \
+	cache_check_response_headers, check_for_refresh
 
 from octoprint.printer import UnknownScript
 
@@ -370,6 +373,13 @@ def printerCommand():
 	return NO_CONTENT
 
 @api.route("/printer/command/custom", methods=["GET"])
+@conditional(lambda: check_etag_and_lastmodified(compute_etag(), compute_lastmodified()), NOT_MODIFIED)
+@cached(timeout=10 * 60,
+        refreshif=lambda cached: check_for_refresh(cached, compute_etag()),
+        key=lambda: "view:{}".format(request.base_url),
+        unless_response=lambda response: cache_check_response_headers(response))
+@etagged(lambda _: compute_etag())
+@lastmodified(lambda _: compute_lastmodified())
 def getCustomControls():
 	# TODO: document me
 	customControls = settings().get(["controls"])

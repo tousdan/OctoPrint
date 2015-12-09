@@ -33,7 +33,7 @@ _valid_div_re = re.compile("[a-zA-Z_-]+")
                                 unless=lambda: request.url_root in settings().get(["server", "preemptiveCache", "exceptions"]))
 @util.flask.conditional(lambda: _check_etag_and_lastmodified_for_index(), NOT_MODIFIED)
 @util.flask.cached(timeout=-1,
-                   refreshif=lambda cached: _validate_cache_for_index(cached),
+                   refreshif=lambda cached: util.flask.check_for_refresh(cached, _compute_etag_for_index()),
                    key=lambda: "view:{}:{}".format(request.base_url, g.locale.language if g.locale else "en"),
                    unless_response=lambda response: util.flask.cache_check_response_headers(response))
 @util.flask.etagged(lambda _: _compute_etag_for_index())

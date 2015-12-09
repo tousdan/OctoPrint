@@ -10,6 +10,12 @@ import os
 import copy
 import re
 import logging
+import time
+
+try:
+	from os import scandir
+except ImportError:
+	from scandir import scandir
 
 from octoprint.settings import settings
 from octoprint.util import dict_merge, dict_sanitize, dict_contains_keys, is_hidden_path
@@ -172,6 +178,12 @@ class PrinterProfileManager(object):
 		self._folder = settings().getBaseFolder("printerProfiles")
 		self._logger = logging.getLogger(__name__)
 
+		self._last_modified = None
+
+	@property
+	def last_modified(self):
+		return self._last_modified
+
 	def select(self, identifier):
 		if identifier is None or not self.exists(identifier):
 			self._current = self.get_default()
@@ -284,20 +296,24 @@ class PrinterProfileManager(object):
 				continue
 
 			results[identifier] = dict_merge(self._load_default(), profile)
+
 		return results
 
 	def _load_all_identifiers(self):
 		results = dict(_default=None)
-		for entry in os.listdir(self._folder):
-			if is_hidden_path(entry) or not entry.endswith(".profile") or entry == "_default.profile":
+		last_modified = [os.stat(__file__).st_mtime]
+		for entry in scandir(self._folder):
+			if is_hidden_path(entry.name) or not entry.name.endswith(".profile") or entry.name == "_default.profile":
 				continue
 
-			path = os.path.join(self._folder, entry)
-			if not os.path.isfile(path):
+			if not entry.is_file():
 				continue
 
-			identifier = entry[:-len(".profile")]
-			results[identifier] = path
+			identifier = entry.name[:-len(".profile")]
+			results[identifier] = entry.path
+			last_modified.append(entry.stat().st_mtime)
+
+		self._last_modified = max(last_modified)
 		return results
 
 	def _load_from_path(self, path):
@@ -334,6 +350,7 @@ class PrinterProfileManager(object):
 		try:
 			with atomic_write(path, "wb") as f:
 				yaml.safe_dump(profile, f, default_flow_style=False, indent="  ", allow_unicode=True)
+			self._last_modified = os.stat(path).st_mtime
 		except Exception as e:
 			self._logger.exception("Error while trying to save profile %s" % profile["id"])
 			raise SaveError("Cannot save profile %s: %s" % (profile["id"], str(e)))
@@ -341,6 +358,7 @@ class PrinterProfileManager(object):
 	def _remove_from_path(self, path):
 		try:
 			os.remove(path)
+			self._last_modified = time.time()
 			return True
 		except:
 			return False

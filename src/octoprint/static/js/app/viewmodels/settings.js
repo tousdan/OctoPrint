@@ -283,6 +283,7 @@ $(function() {
                 url: API_BASEURL + "settings",
                 type: "GET",
                 dataType: "json",
+                cache: true,
                 success: function(response) {
                     if (callback) {
                         self.callbacks.push(callback);

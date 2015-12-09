@@ -309,15 +309,6 @@ class Server():
 			s.get(["server", "reverseProxy", "hostFallback"])
 		)
 
-		secret_key = s.get(["server", "secretKey"])
-		if not secret_key:
-			import string
-			from random import choice
-			chars = string.ascii_lowercase + string.ascii_uppercase + string.digits
-			secret_key = "".join(choice(chars) for _ in xrange(32))
-			s.set(["server", "secretKey"], secret_key)
-			s.save()
-		app.secret_key = secret_key
 		loginManager = LoginManager()
 		loginManager.session_protection = "strong"
 		loginManager.user_callback = load_user
@@ -331,10 +322,28 @@ class Server():
 		if self._port is None:
 			self._port = s.getInt(["server", "port"])
 
-		app.debug = self._debug
-
 		# register API blueprint
 		self._setup_blueprints()
+
+		# setup profiler if necessary
+		if settings().getBoolean(["devel", "flaskProfiler"]):
+			try:
+				import flask_profiler
+				app.config["flask_profiler"] = dict(
+					enabled=True,
+					storage=dict(
+						engine="sqlite"
+					),
+					basicAuth=dict(
+						enabled=True,
+						username="octo",
+						password="print"
+					)
+				)
+				flask_profiler.init_app(app)
+			except:
+				# ok, no profiler then...
+				self._logger.exception("Flask Profiler enabled but not available")
 
 		## Tornado initialization starts here
 
@@ -639,6 +648,18 @@ class Server():
 				response.cache_control.no_cache = True
 			response.headers.add("X-Clacks-Overhead", "GNU Terry Pratchett")
 			return response
+
+		secret_key = settings().get(["server", "secretKey"])
+		if not secret_key:
+			import string
+			from random import choice
+			chars = string.ascii_lowercase + string.ascii_uppercase + string.digits
+			secret_key = "".join(choice(chars) for _ in xrange(32))
+			settings().set(["server", "secretKey"], secret_key)
+			settings().save()
+		app.secret_key = secret_key
+
+		app.debug = self._debug
 
 	def _setup_i18n(self, app):
 		global babel

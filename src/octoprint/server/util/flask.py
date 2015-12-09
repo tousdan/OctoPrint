@@ -595,6 +595,20 @@ def check_lastmodified(lastmodified):
 	       lastmodified >= flask.request.if_modified_since
 
 
+def check_etag_and_lastmodified(computed_etag, computed_lastmodified):
+	from datetime import datetime
+	timestamp = datetime.fromtimestamp(computed_lastmodified).replace(microsecond=0)
+	return check_etag(computed_etag) and check_lastmodified(timestamp)
+
+
+def check_for_refresh(cached_response, current_etag):
+	no_cache_headers = cache_check_headers()
+	refresh_flag = "_refresh" in flask.request.values
+	etag_different = current_etag != cached_response.get_etag()[0]
+
+	return no_cache_headers or refresh_flag or etag_different
+
+
 def add_non_caching_response_headers(response):
 	response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0"
 	response.headers["Pragma"] = "no-cache"

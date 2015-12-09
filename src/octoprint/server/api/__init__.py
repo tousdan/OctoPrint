@@ -42,7 +42,7 @@ from . import languages as api_languages
 
 VERSION = "0.1"
 
-api.after_request(noCachingResponseHandler)
+#api.after_request(noCachingResponseHandler)
 
 api.before_request(apiKeyRequestHandler)
 api.after_request(corsResponseHandler)

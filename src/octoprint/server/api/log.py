@@ -16,6 +16,10 @@ from octoprint.server import NO_CONTENT, admin_permission
 from octoprint.server.util.flask import redirect_to_tornado, restricted_access
 from octoprint.server.api import api
 
+try:
+	from os import scandir
+except ImportError:
+	from scandir import scandir
 
 @api.route("/logs", methods=["GET"])
 @restricted_access
@@ -23,9 +27,7 @@ from octoprint.server.api import api
 def getLogFiles():
 	import psutil
 	usage = psutil.disk_usage(settings().getBaseFolder("logs"))
-
-	files = _getLogFiles()
-
+	files = _get_log_files()
 	return jsonify(files=files, free=usage.free, total=usage.total)
 
 
@@ -41,7 +43,7 @@ def downloadLog(filename):
 @admin_permission.require(403)
 def deleteLog(filename):
 	secure = os.path.join(settings().getBaseFolder("logs"), secure_filename(filename))
-	if not os.path.exists(secure):
+	if not os.path.isfile(secure):
 		return make_response("File not found: %s" % filename, 404)
 
 	os.remove(secure)
@@ -49,18 +51,22 @@ def deleteLog(filename):
 	return NO_CONTENT
 
 
-def _getLogFiles():
+def _get_log_files():
 	files = []
 	basedir = settings().getBaseFolder("logs")
-	for osFile in os.listdir(basedir):
-		statResult = os.stat(os.path.join(basedir, osFile))
+
+	for entry in scandir(basedir):
+		if not entry.is_file():
+			continue
+
+		stat = entry.stat()
 		files.append({
-			"name": osFile,
-			"date": int(statResult.st_mtime),
-			"size": statResult.st_size,
+			"name": entry.name,
+			"date": int(stat.st_mtime),
+			"size": stat.st_size,
 			"refs": {
-				"resource": url_for(".downloadLog", filename=osFile, _external=True),
-				"download": url_for("index", _external=True) + "downloads/logs/" + osFile
+				"resource": url_for(".downloadLog", filename=entry.name, _external=True),
+				"download": url_for("index", _external=True) + "downloads/logs/" + entry.name
 			}
 		})
 

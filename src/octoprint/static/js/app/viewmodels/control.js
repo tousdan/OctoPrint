@@ -115,6 +115,7 @@ $(function() {
                 url: API_BASEURL + "printer/command/custom",
                 method: "GET",
                 dataType: "json",
+                cache: true,
                 success: function (response) {
                     self._fromResponse(response);
                 }

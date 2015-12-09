@@ -9,13 +9,47 @@ from flask import request, jsonify, make_response
 
 from octoprint.settings import settings
 from octoprint.printer import get_connection_options
-from octoprint.server import printer, printerProfileManager, NO_CONTENT
+from octoprint.server import printer, printerProfileManager, NO_CONTENT, NOT_MODIFIED
 from octoprint.server.api import api
-from octoprint.server.util.flask import restricted_access, get_json_command_from_request
+from octoprint.server.util.flask import restricted_access, get_json_command_from_request, \
+	etagged, lastmodified, conditional, check_etag_and_lastmodified
 import octoprint.util as util
 
 
+from octoprint.server.api.printer_profiles import compute_etag as pp_compute_etag
+from octoprint.server.api.printer_profiles import compute_lastmodified as pp_compute_lastmodified
+
+
+def compute_etag(lm=None):
+	pp_etag = pp_compute_etag(lm)
+	options = get_connection_options()
+	state, port, baudrate, printer_profile = printer.get_current_connection()
+
+	import hashlib
+	hash = hashlib.sha1()
+	hash.update(pp_etag)
+	hash.update(",".join(sorted(options["ports"])))
+	hash.update(str(state))
+	hash.update(port if port else "")
+	hash.update(str(baudrate))
+	hash.update(printer_profile.get("id", "") if printer_profile else "")
+	return hash.hexdigest()
+
+def compute_lastmodified():
+	return pp_compute_lastmodified()
+
+def check_conditional():
+	lm = compute_lastmodified()
+	if not lm:
+		return False
+
+	return check_etag_and_lastmodified(compute_etag(lm), lm)
+
+
 @api.route("/connection", methods=["GET"])
+@conditional(lambda: check_conditional(), NOT_MODIFIED)
+@etagged(lambda _: compute_etag())
+@lastmodified(lambda _: compute_lastmodified())
 def connectionState():
 	state, port, baudrate, printer_profile = printer.get_current_connection()
 	current = {
@@ -82,7 +116,8 @@ def _get_options():
 	options = dict(
 		ports=connection_options["ports"],
 		baudrates=connection_options["baudrates"],
-		printerProfiles=[dict(id=printer_profile["id"], name=printer_profile["name"] if "name" in printer_profile else printer_profile["id"]) for printer_profile in profile_options.values() if "id" in printer_profile],
+		printerProfiles=[dict(id=printer_profile["id"],
+		                      name=printer_profile.get("name", printer_profile["id"])) for printer_profile in profile_options.values() if "id" in printer_profile],
 		portPreference=connection_options["portPreference"],
 		baudratePreference=connection_options["baudratePreference"],
 		printerProfilePreference=default_profile["id"] if "id" in default_profile else None

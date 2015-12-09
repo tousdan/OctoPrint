@@ -14,6 +14,11 @@ import shutil
 import Queue
 import requests
 
+try:
+	from os import scandir
+except ImportError:
+	from scandir import scandir
+
 import octoprint.util as util
 
 from octoprint.settings import settings
@@ -24,20 +29,41 @@ import sarge
 current = None
 
 
+last_modified = None
+
+
 def getFinishedTimelapses():
+	lm = []
 	files = []
-	basedir = settings().getBaseFolder("timelapse")
-	for osFile in os.listdir(basedir):
-		if not fnmatch.fnmatch(osFile, "*.mpg"):
+	for entry in scandir(settings().getBaseFolder("timelapse")):
+		if not fnmatch.fnmatch(entry.name, "*.mpg"):
 			continue
-		statResult = os.stat(os.path.join(basedir, osFile))
-		files.append({
-			"name": osFile,
-			"size": util.get_formatted_size(statResult.st_size),
-			"bytes": statResult.st_size,
-			"date": util.get_formatted_datetime(datetime.datetime.fromtimestamp(statResult.st_ctime))
-		})
+
+		stat = entry.stat()
+		lm.append(stat.st_mtime)
+		files.append(dict(name=entry.name,
+		                  size=util.get_formatted_size(stat.st_size),
+		                  bytes=stat.st_size,
+		                  timestamp=stat.st_mtime,
+		                  date=util.get_formatted_datetime(datetime.datetime.fromtimestamp(stat.st_mtime))))
+
+	global last_modified
+	last_modified = max(lm)
+
 	return files
+
+
+def deleteTimelapse(filename):
+	if util.is_allowed_file(filename, {"mpg"}):
+		timelapse_folder = settings().getBaseFolder("timelapse")
+		full_path = os.path.realpath(os.path.join(timelapse_folder, filename))
+		if full_path.startswith(timelapse_folder) and os.path.exists(full_path):
+			os.remove(full_path)
+
+	global last_modified
+	last_modified = time.time()
+
+
 
 validTimelapseTypes = ["off", "timed", "zchange"]
 
@@ -382,6 +408,8 @@ class Timelapse(object):
 		try:
 			p = sarge.run(command_str, stderr=sarge.Capture())
 			if p.returncode == 0:
+				global last_modified
+				last_modified = os.stat(output).st_mtime
 				eventManager().fire(Events.MOVIE_DONE, {"gcode": self._gcode_file, "movie": output, "movie_basename": os.path.basename(output)})
 			else:
 				returncode = p.returncode

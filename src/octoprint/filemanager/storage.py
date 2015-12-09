@@ -11,6 +11,11 @@ import os
 import pylru
 import tempfile
 
+try:
+	from os import scandir
+except ImportError:
+	from scandir import scandir
+
 import octoprint.filemanager
 
 from octoprint.util import is_hidden_path
@@ -888,37 +893,35 @@ class LocalFileStorage(StorageInterface):
 		metadata_dirty = False
 
 		result = dict()
-		for entry in os.listdir(path):
-			if is_hidden_path(entry):
+		for entry in scandir(path):
+			if is_hidden_path(entry.name):
 				# no hidden files and folders
 				continue
 
-			entry_path = os.path.join(path, entry)
-
 			# file handling
-			if os.path.isfile(entry_path):
-				file_type = octoprint.filemanager.get_file_type(entry)
+			if entry.is_file():
+				file_type = octoprint.filemanager.get_file_type(entry.name)
 				if not file_type:
 					# only supported extensions
 					continue
 				else:
 					file_type = file_type[0]
 
-				if entry in metadata and isinstance(metadata[entry], dict):
-					entry_data = metadata[entry]
+				if entry.name in metadata and isinstance(metadata[entry.name], dict):
+					entry_data = metadata[entry.name]
 				else:
-					entry_data = self._add_basic_metadata(path, entry, save=False, metadata=metadata)
+					entry_data = self._add_basic_metadata(path, entry.name, save=False, metadata=metadata)
 					metadata_dirty = True
 
 				# TODO extract model hash from source if possible to recreate link
 
-				if not filter or filter(entry, entry_data):
+				if not filter or filter(entry.name, entry_data):
 					# only add files passing the optional filter
 					extended_entry_data = dict()
 					extended_entry_data.update(entry_data)
-					extended_entry_data["name"] = entry
+					extended_entry_data["name"] = entry.name
 					extended_entry_data["type"] = file_type
-					stat = os.stat(entry_path)
+					stat = entry.stat()
 					if stat:
 						extended_entry_data["size"] = stat.st_size
 						extended_entry_data["date"] = int(stat.st_mtime)
@@ -926,10 +929,10 @@ class LocalFileStorage(StorageInterface):
 					result[entry] = extended_entry_data
 
 			# folder recursion
-			elif os.path.isdir(entry_path) and recursive:
-				sub_result = self._list_folder(entry_path, filter=filter)
+			elif entry.is_dir() and recursive:
+				sub_result = self._list_folder(entry.path, filter=filter)
 				result[entry] = dict(
-					name=entry,
+					name=entry.name,
 					type="folder",
 					children=sub_result
 				)

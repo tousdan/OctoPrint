@@ -8,16 +8,30 @@ __copyright__ = "Copyright (C) 2014 The OctoPrint Project - Released under terms
 from flask import request, jsonify, make_response, url_for
 from werkzeug.exceptions import BadRequest
 
-from octoprint.server import slicingManager
+from octoprint.server import slicingManager, NOT_MODIFIED
 from octoprint.server.util.flask import restricted_access
 from octoprint.server.api import api, NO_CONTENT
+from octoprint.server.util.flask import etagged, lastmodified, conditional, check_etag, check_etag_and_lastmodified
 
 from octoprint.settings import settings as s, valid_boolean_trues
 
 from octoprint.slicing import UnknownSlicer, SlicerNotConfigured, ProfileAlreadyExists, UnknownProfile
 
+import hashlib
+
+
+def compute_etag():
+	configured = "configured" in request.values and request.values["configured"] in valid_boolean_trues
+	slicers = slicingManager.configured_slicers if configured else slicingManager.registered_slicers
+
+	hash = hashlib.sha1()
+	hash.update(str(configured))
+	hash.update(",".join(sorted(slicers)))
+	return hash.hexdigest()
 
 @api.route("/slicing", methods=["GET"])
+@conditional(lambda: check_etag(compute_etag()), NOT_MODIFIED)
+@etagged(lambda _: compute_etag())
 def slicingListAll():
 	default_slicer = s().get(["slicing", "defaultSlicer"])
 
@@ -43,7 +57,28 @@ def slicingListAll():
 
 	return jsonify(result)
 
+def compute_etag_for_slicer_profiles(slicer, lm=None):
+	if lm is None:
+		lm = compute_lastmodified_for_slicer_profiles(slicer)
+
+	import hashlib
+	return hashlib.sha1(str(lm) if lm else "").hexdigest()
+
+def compute_lastmodified_for_slicer_profiles(slicer):
+	return slicingManager.last_modified_for_slicer(slicer)
+
+def check_slicer_profiles(slicer):
+	lm = compute_lastmodified_for_slicer_profiles(slicer)
+	if lm is None:
+		return False
+
+	etag = compute_etag_for_slicer_profiles(slicer, lm)
+	return check_etag_and_lastmodified(etag, lm)
+
 @api.route("/slicing/<string:slicer>/profiles", methods=["GET"])
+@conditional(lambda: check_slicer_profiles(request.view_args["slicer"]), NOT_MODIFIED)
+@etagged(lambda _: compute_etag_for_slicer_profiles(request.view_args["slicer"]))
+@lastmodified(lambda _: compute_lastmodified_for_slicer_profiles(request.view_args["slicer"]))
 def slicingListSlicerProfiles(slicer):
 	configured = False
 	if "configured" in request.values and request.values["configured"] in valid_boolean_trues:

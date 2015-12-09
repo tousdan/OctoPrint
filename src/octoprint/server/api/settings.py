@@ -14,17 +14,33 @@ from octoprint.events import eventManager, Events
 from octoprint.settings import settings
 from octoprint.printer import get_connection_options
 
-from octoprint.server import admin_permission
+from octoprint.server import admin_permission, NOT_MODIFIED
 from octoprint.server.api import api
-from octoprint.server.util.flask import restricted_access
+from octoprint.server.util.flask import restricted_access, cached, \
+	cache_check_response_headers, etagged, lastmodified, conditional, \
+	check_for_refresh, check_etag_and_lastmodified
 
 import octoprint.plugin
 import octoprint.util
 
+import hashlib
+
 #~~ settings
 
+def compute_etag():
+	return hashlib.sha1(str(settings().last_modified)).hexdigest()
+
+def compute_lastmodified():
+	return settings().last_modified
 
 @api.route("/settings", methods=["GET"])
+@conditional(lambda: check_etag_and_lastmodified(compute_etag(), compute_lastmodified()), NOT_MODIFIED)
+@cached(timeout=10 * 60,
+        refreshif=lambda cached: check_for_refresh(cached, compute_etag()),
+        key=lambda: "view:{}".format(request.base_url),
+        unless_response=lambda response: cache_check_response_headers(response))
+@etagged(lambda _: compute_etag())
+@lastmodified(lambda _: compute_lastmodified())
 def getSettings():
 	logger = logging.getLogger(__name__)
 
@@ -139,6 +155,7 @@ def getSettings():
 				jsonify(test=result)
 			except:
 				logger.exception("Error while jsonifying settings from plugin {}, please contact the plugin author about this".format(name))
+				return
 
 			if not "plugins" in data:
 				data["plugins"] = dict()

@@ -5,24 +5,50 @@ __author__ = "Gina Häußge <osd@foosel.net>"
 __license__ = 'GNU Affero General Public License http://www.gnu.org/licenses/agpl.html'
 __copyright__ = "Copyright (C) 2014 The OctoPrint Project - Released under terms of the AGPLv3 License"
 
-import os
-
 from flask import request, jsonify, url_for, make_response
-from werkzeug.utils import secure_filename
 
 import octoprint.timelapse
-import octoprint.util as util
-from octoprint.settings import settings, valid_boolean_trues
+from octoprint.settings import valid_boolean_trues
 
-from octoprint.server import admin_permission
-from octoprint.server.util.flask import redirect_to_tornado, restricted_access
+from octoprint.server import admin_permission, NOT_MODIFIED
+from octoprint.server.util.flask import redirect_to_tornado, restricted_access, \
+	etagged, lastmodified, conditional, check_etag_and_lastmodified
 from octoprint.server.api import api
 
 
 #~~ timelapse handling
 
 
+def compute_etag(lm=None):
+	if lm is None:
+		lm = compute_lastmodified()
+
+	timelapse = octoprint.timelapse.current
+
+	import hashlib
+	hash = hashlib.sha1()
+	hash.update(str(lm) if lm else "")
+	hash.update(repr(timelapse))
+	return hash.hexdigest()
+
+
+def compute_lastmodified():
+	return octoprint.timelapse.last_modified
+
+
+def check_conditional():
+	lm = compute_lastmodified()
+	if not lm:
+		return False
+
+	etag = compute_etag(lm)
+	return check_etag_and_lastmodified(etag, lm)
+
+
 @api.route("/timelapse", methods=["GET"])
+@conditional(lambda: check_conditional(), NOT_MODIFIED)
+@etagged(lambda _: compute_etag())
+@lastmodified(lambda _: compute_lastmodified())
 def getTimelapseData():
 	timelapse = octoprint.timelapse.current
 
@@ -57,11 +83,7 @@ def downloadTimelapse(filename):
 @api.route("/timelapse/<filename>", methods=["DELETE"])
 @restricted_access
 def deleteTimelapse(filename):
-	if util.is_allowed_file(filename, {"mpg"}):
-		timelapse_folder = settings().getBaseFolder("timelapse")
-		full_path = os.path.realpath(os.path.join(timelapse_folder, filename))
-		if full_path.startswith(timelapse_folder) and os.path.exists(full_path):
-			os.remove(full_path)
+	octoprint.timelapse.deleteTimelapse(filename)
 	return getTimelapseData()
 
 

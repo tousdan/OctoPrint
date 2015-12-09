@@ -26,6 +26,12 @@ import octoprint.util
 from octoprint.settings import settings
 
 import logging
+import time
+
+try:
+	from os import scandir
+except ImportError:
+	from scandir import scandir
 
 from .exceptions import *
 
@@ -112,6 +118,11 @@ class SlicingManager(object):
 
 		self._slicers = dict()
 		self._slicer_names = dict()
+
+		self._last_modified = dict()
+
+	def last_modified_for_slicer(self, slicer):
+		return self._last_modified.get(slicer, None)
 
 	def initialize(self):
 		"""
@@ -449,6 +460,7 @@ class SlicingManager(object):
 		except UnknownProfile:
 			return
 		os.remove(path)
+		self._last_modified[slicer] = time.time()
 
 	def all_profiles(self, slicer, require_configured=False):
 		"""
@@ -477,16 +489,19 @@ class SlicingManager(object):
 			raise SlicerNotConfigured(slicer)
 
 		profiles = dict()
+		last_modified = []
 		slicer_profile_path = self.get_slicer_profile_path(slicer)
-		for entry in os.listdir(slicer_profile_path):
-			if not entry.endswith(".profile") or octoprint.util.is_hidden_path(entry):
+		for entry in scandir(slicer_profile_path):
+			if not entry.name.endswith(".profile") or octoprint.util.is_hidden_path(entry):
 				# we are only interested in profiles and no hidden files
 				continue
 
-			path = os.path.join(slicer_profile_path, entry)
-			profile_name = entry[:-len(".profile")]
+			profile_name = entry.name[:-len(".profile")]
 
-			profiles[profile_name] = self._load_profile_from_path(slicer, path, require_configured=require_configured)
+			profiles[profile_name] = self._load_profile_from_path(slicer, entry.path, require_configured=require_configured)
+			last_modified.append(entry.stat().st_mtime)
+
+		self._last_modified[slicer] = max(last_modified)
 		return profiles
 
 	def get_slicer_profile_path(self, slicer):
@@ -564,6 +579,7 @@ class SlicingManager(object):
 
 	def _save_profile_to_path(self, slicer, path, profile, allow_overwrite=True, overrides=None, require_configured=False):
 		self.get_slicer(slicer, require_configured=require_configured).save_slicer_profile(path, profile, allow_overwrite=allow_overwrite, overrides=overrides)
+		self._last_modified[slicer] = os.stat(path).st_mtime
 
 	def _get_default_profile(self, slicer):
 		default_profiles = settings().get(["slicing", "defaultProfiles"])

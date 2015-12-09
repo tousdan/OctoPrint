@@ -23,10 +23,19 @@ from collections import namedtuple
 ContentTypeMapping = namedtuple("ContentTypeMapping", "extensions, content_type")
 ContentTypeDetector = namedtuple("ContentTypeDetector", "extensions, detector")
 
-extensions = dict(
-)
+_extension_tree = None
+_extension_tree_base = None
 
-def full_extension_tree():
+def full_extension_tree(refresh=False):
+	global _extension_tree, _extension_tree_base
+
+	# if our cached extension tree is based on the same data as we'd base it on
+	# now, we can use the cached result
+	extension_tree_hooks = octoprint.plugin.plugin_manager().get_hooks("octoprint.filemanager.extension_tree")
+	extension_tree_base = ",".join(sorted(extension_tree_hooks.keys()))
+	if _extension_tree and not refresh and _extension_tree_base == extension_tree_base:
+		return _extension_tree
+
 	result = dict(
 		# extensions for 3d model files
 		model=dict(
@@ -38,7 +47,6 @@ def full_extension_tree():
 		)
 	)
 
-	extension_tree_hooks = octoprint.plugin.plugin_manager().get_hooks("octoprint.filemanager.extension_tree")
 	for name, hook in extension_tree_hooks.items():
 		try:
 			hook_result = hook()
@@ -48,6 +56,8 @@ def full_extension_tree():
 		except:
 			logging.getLogger(__name__).exception("Exception while retrieving additional extension tree entries from hook {name}".format(name=name))
 
+	_extension_tree_base = extension_tree_base
+	_extension_tree = result
 	return result
 
 def get_extensions(type, subtree=None):
