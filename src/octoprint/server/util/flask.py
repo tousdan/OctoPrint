@@ -314,7 +314,7 @@ class LessSimpleCache(BaseCache):
 
 _cache = LessSimpleCache()
 
-def cached(timeout=5 * 60, key=lambda: "view:%s" % flask.request.path, unless=None, refreshif=None, unless_response=None):
+def cached(timeout=5 * 60, key=lambda: "view:{}".format(flask.request.path), unless=None, refreshif=None, unless_response=None):
 	def decorator(f):
 		@functools.wraps(f)
 		def decorated_function(*args, **kwargs):
@@ -601,12 +601,15 @@ def check_etag_and_lastmodified(computed_etag, computed_lastmodified):
 	return check_etag(computed_etag) and check_lastmodified(timestamp)
 
 
-def check_for_refresh(cached_response, current_etag):
+def check_for_refresh(cached_response, current_etag=None):
 	no_cache_headers = cache_check_headers()
 	refresh_flag = "_refresh" in flask.request.values
-	etag_different = current_etag != cached_response.get_etag()[0]
 
-	return no_cache_headers or refresh_flag or etag_different
+	if current_etag:
+		etag_different = current_etag != cached_response.get_etag()[0]
+		return no_cache_headers or refresh_flag or etag_different
+	else:
+		return no_cache_headers or refresh_flag
 
 
 def add_non_caching_response_headers(response):

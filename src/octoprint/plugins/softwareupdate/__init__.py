@@ -333,6 +333,9 @@ class SoftwareUpdatePlugin(octoprint.plugin.BlueprintPlugin,
 
 	@octoprint.plugin.BlueprintPlugin.route("/check", methods=["GET"])
 	@restricted_access
+	@octoprint.server.util.flask.cached(timeout=6*60*60,
+	                                    refreshif=lambda cached: octoprint.server.util.flask.check_for_refresh(cached) or flask.request.values.get("force", "false") in octoprint.settings.valid_boolean_trues,
+	                                    unless_response=lambda response: octoprint.server.util.flask.cache_check_response_headers(response))
 	def check_for_update(self):
 		if "check" in flask.request.values:
 			check_targets = map(str.strip, flask.request.values["check"].split(","))

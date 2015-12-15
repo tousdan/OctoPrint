@@ -24,6 +24,7 @@ import requests
 import re
 import os
 import pkg_resources
+import time
 
 class PluginManagerPlugin(octoprint.plugin.SimpleApiPlugin,
                           octoprint.plugin.TemplatePlugin,
@@ -45,6 +46,11 @@ class PluginManagerPlugin(octoprint.plugin.SimpleApiPlugin,
 		self._repository_plugins = []
 		self._repository_cache_path = None
 		self._repository_cache_ttl = 0
+
+		self._repository_lastmodified = None
+
+		self._plugin_names = None
+		self._plugins_lastmodified = None
 
 	def initialize(self):
 		self._console_logger = logging.getLogger("octoprint.plugins.pluginmanager.console")
@@ -74,6 +80,10 @@ class PluginManagerPlugin(octoprint.plugin.SimpleApiPlugin,
 		self._console_logger.propagate = False
 
 		self._repository_available = self._fetch_repository_from_disk()
+
+		self._plugin_lifecycle_manager.add_callback("enabled", self._plugins_changed)
+		self._plugin_lifecycle_manager.add_callback("disabled", self._plugins_changed)
+		self._plugins_changed()
 
 	##~~ SettingsPlugin
 
@@ -169,29 +179,63 @@ class PluginManagerPlugin(octoprint.plugin.SimpleApiPlugin,
 		if not admin_permission.can():
 			return make_response("Insufficient rights", 403)
 
-		plugins = self._plugin_manager.plugins
+		def create_response():
+			plugins = self._plugin_manager.plugins
 
-		result = []
-		for name, plugin in plugins.items():
-			result.append(self._to_external_representation(plugin))
+			result = []
+			for name, plugin in plugins.items():
+				result.append(self._to_external_representation(plugin))
 
-		if "refresh_repository" in request.values and request.values["refresh_repository"] in valid_boolean_trues:
-			self._repository_available = self._refresh_repository()
+			if "refresh_repository" in request.values and request.values["refresh_repository"] in valid_boolean_trues:
+				self._repository_available = self._refresh_repository()
 
-		return jsonify(plugins=result,
-		               repository=dict(
-		                   available=self._repository_available,
-		                   plugins=self._repository_plugins
-		               ),
-		               os=self._get_os(),
-		               octoprint=VERSION,
-		               pip=dict(
-		                   available=self._pip_caller.available,
-		                   command=self._pip_caller.command,
-		                   version=self._pip_caller.version_string,
-		                   use_sudo=self._pip_caller.use_sudo,
-		                   additional_args=self._settings.get(["pip_args"])
-		               ))
+			return jsonify(plugins=result,
+			               repository=dict(
+			                   available=self._repository_available,
+			                   plugins=self._repository_plugins
+			               ),
+			               os=self._get_os(),
+			               octoprint=VERSION,
+			               pip=dict(
+			                   available=self._pip_caller.available,
+			                   command=self._pip_caller.command,
+			                   version=self._pip_caller.version_string,
+			                   use_sudo=self._pip_caller.use_sudo,
+			                   additional_args=self._settings.get(["pip_args"])
+			               ))
+
+		def compute_etag(lm=None):
+			if lm is None:
+				lm = compute_lastmodified()
+
+			import hashlib
+			hash = hashlib.sha1()
+			hash.update(str(lm))
+			hash.update(",".join(sorted(self._plugin_names)) if self._plugin_names else "")
+			return hash.hexdigest()
+
+		def compute_lastmodified():
+			lms = [lm for lm in (self._repository_lastmodified, self._plugins_lastmodified) if lm]
+			return max(lms) if lms else time.time()
+
+		def check_conditional():
+			lm = compute_lastmodified()
+			if not lm:
+				return False
+
+			etag = compute_etag(lm)
+			return octoprint.server.util.flask.check_etag_and_lastmodified(etag, lm)
+
+		view = create_response
+		view = octoprint.server.util.flask.etagged(lambda _: compute_etag())(view)
+		view = octoprint.server.util.flask.lastmodified(lambda _: compute_lastmodified())(view)
+		view = octoprint.server.util.flask.cached(timeout=-1,
+		                                          refreshif=lambda cached: octoprint.server.util.flask.check_for_refresh(cached, compute_etag()),
+		                                          unless_response=lambda response: octoprint.server.util.flask.cache_check_response_headers(response))(view)
+		view = octoprint.server.util.flask.conditional(lambda: check_conditional(),
+		                                               octoprint.server.NOT_MODIFIED)(view)
+		view = octoprint.server.admin_permission.require(403)(view)
+		return view()
 
 	def on_api_command(self, command, data):
 		if not admin_permission.can():
@@ -516,6 +560,7 @@ class PluginManagerPlugin(octoprint.plugin.SimpleApiPlugin,
 					import json
 					with open(self._repository_cache_path) as f:
 						repo_data = json.load(f)
+					self._repository_lastmodified = os.stat(self._repository_cache_path).st_mtime
 					self._logger.info("Loaded plugin repository data from disk, was still valid")
 				except:
 					self._logger.exception("Error while loading repository data from {}".format(self._repository_cache_path))
@@ -538,6 +583,7 @@ class PluginManagerPlugin(octoprint.plugin.SimpleApiPlugin,
 			import json
 			with octoprint.util.atomic_write(self._repository_cache_path, "wb") as f:
 				json.dump(repo_data, f)
+			self._repository_lastmodified = os.stat(self._repository_cache_path).st_mtime
 		except Exception as e:
 			self._logger.exception("Error while saving repository data to {}: {}".format(self._repository_cache_path, str(e)))
 
@@ -650,6 +696,10 @@ class PluginManagerPlugin(octoprint.plugin.SimpleApiPlugin,
 			pending_uninstall=(plugin.key in self._pending_uninstall),
 			origin=plugin.origin.type
 		)
+
+	def _plugins_changed(self, *args):
+		self._plugin_names = self._plugin_manager.plugins.keys()
+		self._plugins_lastmodified = time.time()
 
 __plugin_name__ = "Plugin Manager"
 __plugin_author__ = "Gina Häußge"
