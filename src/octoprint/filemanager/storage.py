@@ -926,12 +926,12 @@ class LocalFileStorage(StorageInterface):
 						extended_entry_data["size"] = stat.st_size
 						extended_entry_data["date"] = int(stat.st_mtime)
 
-					result[entry] = extended_entry_data
+					result[entry.name] = extended_entry_data
 
 			# folder recursion
 			elif entry.is_dir() and recursive:
 				sub_result = self._list_folder(entry.path, filter=filter)
-				result[entry] = dict(
+				result[entry.name] = dict(
 					name=entry.name,
 					type="folder",
 					children=sub_result
