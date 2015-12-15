@@ -489,10 +489,10 @@ class SlicingManager(object):
 			raise SlicerNotConfigured(slicer)
 
 		profiles = dict()
-		last_modified = []
+		last_modified = [0]
 		slicer_profile_path = self.get_slicer_profile_path(slicer)
 		for entry in scandir(slicer_profile_path):
-			if not entry.name.endswith(".profile") or octoprint.util.is_hidden_path(entry):
+			if not entry.name.endswith(".profile") or octoprint.util.is_hidden_path(entry.name):
 				# we are only interested in profiles and no hidden files
 				continue
 

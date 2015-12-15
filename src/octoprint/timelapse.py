@@ -33,7 +33,7 @@ last_modified = None
 
 
 def getFinishedTimelapses():
-	lm = []
+	lm = [0]
 	files = []
 	for entry in scandir(settings().getBaseFolder("timelapse")):
 		if not fnmatch.fnmatch(entry.name, "*.mpg"):
