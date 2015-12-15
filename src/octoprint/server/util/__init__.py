@@ -92,6 +92,26 @@ def noCachingResponseHandler(resp):
 	return flask.add_non_caching_response_headers(resp)
 
 
+def noCachingGetResponseHandler(resp):
+	"""
+	Applies ``noCachingResponseHandler`` only to GET requests.
+	"""
+
+	if _flask.request.method == "GET":
+		return noCachingResponseHandler(resp)
+	return resp
+
+
+def noCachingButGetResponseHandler(resp):
+	"""
+	Applies ``noCachingResponseHandler`` to all requests but GETs.
+	"""
+
+	if _flask.request.method == "GET":
+		return resp
+	return noCachingResponseHandler(resp)
+
+
 def optionsAllowOrigin(request):
 	"""
 	Shortcut for request handling for CORS OPTIONS requests to set CORS headers.

@@ -14,7 +14,7 @@ from werkzeug.exceptions import BadRequest
 from octoprint.server import NOT_MODIFIED
 from octoprint.server.api import api, NO_CONTENT
 from octoprint.server.util.flask import restricted_access, etagged, lastmodified, \
-	conditional, check_etag_and_lastmodified
+	conditional, check_etag_and_lastmodified, non_caching
 from octoprint.util import dict_merge
 
 from octoprint.server import printerProfileManager
@@ -93,6 +93,7 @@ def printerProfilesAdd():
 		return jsonify(dict(profile=_convert_profile(saved_profile)))
 
 @api.route("/printerprofiles/<string:identifier>", methods=["GET"])
+@non_caching()
 def printerProfilesGet(identifier):
 	profile = printerProfileManager.get(identifier)
 	if profile is None:

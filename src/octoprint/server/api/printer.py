@@ -15,7 +15,7 @@ from octoprint.server.api import api
 from octoprint.server.api.settings import compute_etag, compute_lastmodified
 from octoprint.server.util.flask import restricted_access, get_json_command_from_request, \
 	cached, etagged, lastmodified, conditional, check_etag_and_lastmodified, \
-	cache_check_response_headers, check_for_refresh
+	cache_check_response_headers, check_for_refresh, non_caching
 
 from octoprint.printer import UnknownScript
 
@@ -23,6 +23,7 @@ from octoprint.printer import UnknownScript
 
 
 @api.route("/printer", methods=["GET"])
+@non_caching()
 def printerState():
 	if not printer.is_operational():
 		return make_response("Printer is not operational", 409)
@@ -147,6 +148,7 @@ def printerToolCommand():
 
 
 @api.route("/printer/tool", methods=["GET"])
+@non_caching()
 def printerToolState():
 	if not printer.is_operational():
 		return make_response("Printer is not operational", 409)
@@ -202,6 +204,7 @@ def printerBedCommand():
 
 
 @api.route("/printer/bed", methods=["GET"])
+@non_caching()
 def printerBedState():
 	if not printer.is_operational():
 		return make_response("Printer is not operational", 409)
@@ -307,6 +310,7 @@ def printerSdCommand():
 
 
 @api.route("/printer/sd", methods=["GET"])
+@non_caching()
 def printerSdState():
 	if not settings().getBoolean(["feature", "sdSupport"]):
 		return make_response("SD support is disabled", 404)

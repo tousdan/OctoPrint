@@ -619,6 +619,16 @@ def add_non_caching_response_headers(response):
 	return response
 
 
+def non_caching():
+	def decorator(f):
+		@functools.wraps(f)
+		def decorated_function(*args, **kwargs):
+			resp = f(*args, **kwargs)
+			return add_non_caching_response_headers(resp)
+		return decorated_function
+	return decorator
+
+
 #~~ access validators for use with tornado
 
 

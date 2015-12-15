@@ -33,6 +33,7 @@ import psutil
 # the cache the request would have to be processed anyhow.
 
 @api.route("/files", methods=["GET"])
+@octoprint.server.util.flask.non_caching()
 def readGcodeFiles():
 	filter = None
 	if "filter" in request.values:
@@ -44,6 +45,7 @@ def readGcodeFiles():
 
 
 @api.route("/files/<string:origin>", methods=["GET"])
+@octoprint.server.util.flask.non_caching()
 def readGcodeFilesForOrigin(origin):
 	if origin not in [FileDestinations.LOCAL, FileDestinations.SDCARD]:
 		return make_response("Unknown origin: %s" % origin, 404)
@@ -272,6 +274,7 @@ def uploadGcodeFile(target):
 
 
 @api.route("/files/<string:target>/<path:filename>", methods=["GET"])
+@octoprint.server.util.flask.non_caching()
 def readGcodeFile(target, filename):
 	if not target in [FileDestinations.LOCAL, FileDestinations.SDCARD]:
 		return make_response("Unknown target: %s" % target, 404)

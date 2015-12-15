@@ -554,6 +554,15 @@ class SimpleApiPlugin(OctoPrintPlugin):
 		"""
 		return False
 
+	def is_api_get_cachable(self):
+		"""
+		Return True if your API's GET request may be cached by the user's browser.
+		In that case OctoPrint will not add no-cache-headers to the response.
+
+		Note that anything but GET requests always get no-cache headers attached.
+		"""
+		return False
+
 	def on_api_command(self, command, data):
 		"""
 		Called by OctoPrint upon a POST request to ``/api/plugin/<plugin identifier>``. ``command`` will contain one of
@@ -742,6 +751,15 @@ class BlueprintPlugin(OctoPrintPlugin, RestartNeedingPlugin):
 
 		return True
 
+	def is_blueprint_cachable(self):
+		"""
+		Whether the blueprint's GET methods are cachable by default or not. If this returns ``True``,
+		OctoPrint will not add no-cache-headers to the responses automatically, it will be the responsibility
+		of the plugin to do that were necessary.
+
+		Note that anything but GET requests always get no-cache headers attached.
+		"""
+		return False
 
 class SettingsPlugin(OctoPrintPlugin):
 	"""

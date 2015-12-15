@@ -11,7 +11,8 @@ from werkzeug.exceptions import BadRequest
 from octoprint.server import slicingManager, NOT_MODIFIED
 from octoprint.server.util.flask import restricted_access
 from octoprint.server.api import api, NO_CONTENT
-from octoprint.server.util.flask import etagged, lastmodified, conditional, check_etag, check_etag_and_lastmodified
+from octoprint.server.util.flask import etagged, lastmodified, conditional, \
+	check_etag, check_etag_and_lastmodified, non_caching
 
 from octoprint.settings import settings as s, valid_boolean_trues
 
@@ -90,6 +91,7 @@ def slicingListSlicerProfiles(slicer):
 		return make_response("Unknown slicer {slicer}".format(**locals()), 404)
 
 @api.route("/slicing/<string:slicer>/profiles/<string:name>", methods=["GET"])
+@non_caching()
 def slicingGetSlicerProfile(slicer, name):
 	try:
 		profile = slicingManager.load_profile(slicer, name, require_configured=False)

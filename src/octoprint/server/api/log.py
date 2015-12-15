@@ -13,7 +13,7 @@ from werkzeug.utils import secure_filename
 from octoprint.settings import settings
 
 from octoprint.server import NO_CONTENT, admin_permission
-from octoprint.server.util.flask import redirect_to_tornado, restricted_access
+from octoprint.server.util.flask import redirect_to_tornado, restricted_access, non_caching
 from octoprint.server.api import api
 
 try:
@@ -26,6 +26,7 @@ except ImportError:
 @api.route("/logs", methods=["GET"])
 @restricted_access
 @admin_permission.require(403)
+@non_caching()
 def getLogFiles():
 	import psutil
 	usage = psutil.disk_usage(settings().getBaseFolder("logs"))
@@ -36,6 +37,7 @@ def getLogFiles():
 @api.route("/logs/<path:filename>", methods=["GET"])
 @restricted_access
 @admin_permission.require(403)
+@non_caching()
 def downloadLog(filename):
 	return redirect_to_tornado(request, url_for("index") + "downloads/logs/" + filename)
 

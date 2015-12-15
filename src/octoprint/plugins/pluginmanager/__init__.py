@@ -166,6 +166,9 @@ class PluginManagerPlugin(octoprint.plugin.SimpleApiPlugin,
 
 	##~~ SimpleApiPlugin
 
+	def is_api_get_cachable(self):
+		return True
+
 	def get_api_commands(self):
 		return {
 			"install": ["url"],

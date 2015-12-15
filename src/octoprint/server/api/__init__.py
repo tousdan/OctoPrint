@@ -19,7 +19,7 @@ import octoprint.server
 import octoprint.plugin
 from octoprint.server import admin_permission, NO_CONTENT
 from octoprint.settings import settings as s, valid_boolean_trues
-from octoprint.server.util import noCachingResponseHandler, apiKeyRequestHandler, corsResponseHandler
+from octoprint.server.util import noCachingButGetResponseHandler, apiKeyRequestHandler, corsResponseHandler
 from octoprint.server.util.flask import restricted_access, get_json_command_from_request, passive_login
 
 
@@ -42,7 +42,7 @@ from . import languages as api_languages
 
 VERSION = "0.1"
 
-#api.after_request(noCachingResponseHandler)
+api.after_request(noCachingButGetResponseHandler)
 
 api.before_request(apiKeyRequestHandler)
 api.after_request(corsResponseHandler)
@@ -63,8 +63,9 @@ def pluginData(name):
 		return make_response("Forbidden", 403)
 
 	response = api_plugin.on_api_get(request)
-
 	if response is not None:
+		if not api_plugin.is_api_get_cachable():
+			response = octoprint.server.util.flask.add_non_caching_response_headers(response)
 		return response
 	return NO_CONTENT
 

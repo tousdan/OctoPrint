@@ -13,7 +13,7 @@ import octoprint.users as users
 
 from octoprint.server import SUCCESS, admin_permission, userManager
 from octoprint.server.api import api
-from octoprint.server.util.flask import restricted_access
+from octoprint.server.util.flask import restricted_access, non_caching
 
 
 #~~ user settings
@@ -22,6 +22,7 @@ from octoprint.server.util.flask import restricted_access
 @api.route("/users", methods=["GET"])
 @restricted_access
 @admin_permission.require(403)
+@non_caching()
 def getUsers():
 	if userManager is None:
 		return jsonify(SUCCESS)
@@ -61,6 +62,7 @@ def addUser():
 
 @api.route("/users/<username>", methods=["GET"])
 @restricted_access
+@non_caching()
 def getUser(username):
 	if userManager is None:
 		return jsonify(SUCCESS)
@@ -150,6 +152,7 @@ def changePasswordForUser(username):
 
 @api.route("/users/<username>/settings", methods=["GET"])
 @restricted_access
+@non_caching()
 def getSettingsForUser(username):
 	if userManager is None:
 		return jsonify(SUCCESS)

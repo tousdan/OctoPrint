@@ -12,7 +12,7 @@ from octoprint.settings import valid_boolean_trues
 
 from octoprint.server import admin_permission, NOT_MODIFIED
 from octoprint.server.util.flask import redirect_to_tornado, restricted_access, \
-	etagged, lastmodified, conditional, check_etag_and_lastmodified
+	etagged, lastmodified, conditional, check_etag_and_lastmodified, non_caching
 from octoprint.server.api import api
 
 
@@ -76,6 +76,7 @@ def getTimelapseData():
 
 
 @api.route("/timelapse/<filename>", methods=["GET"])
+@non_caching()
 def downloadTimelapse(filename):
 	return redirect_to_tornado(request, url_for("index") + "downloads/timelapse/" + filename)
 

@@ -8,7 +8,7 @@ __copyright__ = "Copyright (C) 2014 The OctoPrint Project - Released under terms
 from flask import request, make_response, jsonify
 
 from octoprint.server import printer, NO_CONTENT
-from octoprint.server.util.flask import restricted_access, get_json_command_from_request
+from octoprint.server.util.flask import restricted_access, get_json_command_from_request, non_caching
 from octoprint.server.api import api
 import octoprint.util as util
 
@@ -52,6 +52,7 @@ def controlJob():
 
 
 @api.route("/job", methods=["GET"])
+@non_caching()
 def jobState():
 	currentData = printer.get_current_data()
 	return jsonify({

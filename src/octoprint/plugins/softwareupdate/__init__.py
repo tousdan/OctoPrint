@@ -331,6 +331,9 @@ class SoftwareUpdatePlugin(octoprint.plugin.BlueprintPlugin,
 
 	#~~ BluePrint API
 
+	def is_blueprint_cachable(self):
+		return True
+
 	@octoprint.plugin.BlueprintPlugin.route("/check", methods=["GET"])
 	@restricted_access
 	@octoprint.server.util.flask.cached(timeout=6*60*60,

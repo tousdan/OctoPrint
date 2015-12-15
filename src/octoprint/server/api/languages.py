@@ -17,7 +17,7 @@ from octoprint.settings import settings
 
 from octoprint.server import admin_permission
 from octoprint.server.api import api
-from octoprint.server.util.flask import restricted_access
+from octoprint.server.util.flask import restricted_access, non_caching
 
 from octoprint.plugin import plugin_manager
 
@@ -26,6 +26,7 @@ from flask.ext.babel import Locale
 @api.route("/languages", methods=["GET"])
 @restricted_access
 @admin_permission.require(403)
+@non_caching()
 def getInstalledLanguagePacks():
 	translation_folder = settings().getBaseFolder("translations")
 	if not os.path.exists(translation_folder):

@@ -815,6 +815,10 @@ class Server():
 			blueprint.before_request(apiKeyRequestHandler)
 			blueprint.after_request(corsResponseHandler)
 
+		if not plugin.is_blueprint_cachable():
+			from octoprint.server.util import noCachingResponseHandler
+			blueprint.after_request(noCachingResponseHandler)
+
 		url_prefix = "/plugin/{name}".format(name=name)
 		app.register_blueprint(blueprint, url_prefix=url_prefix)
 
