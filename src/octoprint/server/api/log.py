@@ -21,6 +21,8 @@ try:
 except ImportError:
 	from scandir import scandir
 
+# Why aren't the logs cached? They change too often, wouldn't make sense.
+
 @api.route("/logs", methods=["GET"])
 @restricted_access
 @admin_permission.require(403)

@@ -28,7 +28,10 @@ import hashlib
 #~~ settings
 
 def compute_etag():
-	return hashlib.sha1(str(settings().last_modified)).hexdigest()
+	hash = hashlib.sha1()
+	hash.update(str(settings().last_modified))
+	hash.update(repr(settings().effective))
+	return hash.hexdigest()
 
 def compute_lastmodified():
 	return settings().last_modified
@@ -37,7 +40,6 @@ def compute_lastmodified():
 @conditional(lambda: check_etag_and_lastmodified(compute_etag(), compute_lastmodified()), NOT_MODIFIED)
 @cached(timeout=10 * 60,
         refreshif=lambda cached: check_for_refresh(cached, compute_etag()),
-        key=lambda: "view:{}".format(request.base_url),
         unless_response=lambda response: cache_check_response_headers(response))
 @etagged(lambda _: compute_etag())
 @lastmodified(lambda _: compute_lastmodified())

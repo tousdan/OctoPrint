@@ -376,7 +376,6 @@ def printerCommand():
 @conditional(lambda: check_etag_and_lastmodified(compute_etag(), compute_lastmodified()), NOT_MODIFIED)
 @cached(timeout=10 * 60,
         refreshif=lambda cached: check_for_refresh(cached, compute_etag()),
-        key=lambda: "view:{}".format(request.base_url),
         unless_response=lambda response: cache_check_response_headers(response))
 @etagged(lambda _: compute_etag())
 @lastmodified(lambda _: compute_lastmodified())

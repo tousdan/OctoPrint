@@ -23,6 +23,15 @@ import psutil
 #~~ GCODE file handling
 
 
+# Now, why isn't the GET request for the files cached? Thought long and hard
+# about this and the problem is really that stuff can change externally (there
+# are users who modify and add to the files in the upload folder externally
+# from OctoPrint), so in order to be able to reliably validate any cache we'd need
+# to collect all our file information on every request anyhow. That collection
+# step is pretty much the largest part of the work that needs to be done for
+# this API endpoint, so there would not be much point in caching if to validate
+# the cache the request would have to be processed anyhow.
+
 @api.route("/files", methods=["GET"])
 def readGcodeFiles():
 	filter = None
